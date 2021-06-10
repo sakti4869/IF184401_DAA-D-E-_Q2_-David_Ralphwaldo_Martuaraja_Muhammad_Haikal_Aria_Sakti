@@ -101,6 +101,15 @@ class Grid:
 		self.state = 0
 		self.minesLeft = self.minesCount
 
+	# Function to start the game
+
+	def start(self, x, y):
+		if self.created == False:
+			self.fillMines((x, y))
+			self.created = True
+			self.time = 0
+			self.timeTimer = pygame.time.get_ticks() + 1000
+
 	# Function to check if a cell is valid
 
 	def cellValid(self, x, y):
@@ -152,18 +161,12 @@ class Grid:
 	# Function to open cell
 
 	def openCell(self, x, y, click = False, chord = False):
-		if self.created == False:
-			self.fillMines((x, y))
-			self.created = True
-			self.time = 0
-			self.timeTimer = pygame.time.get_ticks() + 1000
-
-		if self.state != 0: return # Not playing
-		if not self.cellValid(x, y): return
-		if self.isFlagged(x, y) == 1: return
+		if self.state != 0: return # Not playing, don't open cells
+		if not self.cellValid(x, y): return # Cell out of bounds
+		if self.isFlagged(x, y) == 1: return # Cell is flagged, don't open it
 
 		if self.isOpen(x, y) == True:
-			if click == True: # Chording cells
+			if click == True: # Chording cells (opening cells around a satisfied cell)
 				if self.isSatisfied(x, y):
 					self.openCell(x - 1, y - 1, chord = True)
 					self.openCell(x    , y - 1, chord = True)
@@ -190,17 +193,17 @@ class Grid:
 
 			return
 
-		self.grid[y][x].open = True
-		self.cellsLeft -= 1
+		self.grid[y][x].open = True # Open the cell
+		self.cellsLeft -= 1 # Decrement the number of cells left
 
 		if self.cellsLeft <= 0:
 			print('You win!')
 			self.state = 1
 
-		if self.grid[y][x].numMines > 0:
+		if self.grid[y][x].numMines > 0: # If the cell has a neighbouring mine cell, return
 			return
 
-		self.openCell(x - 1, y - 1, click = False)
+		self.openCell(x - 1, y - 1, click = False) # else open the 8 adjacent cells
 		self.openCell(x    , y - 1, click = False)
 		self.openCell(x + 1, y - 1, click = False)
 		self.openCell(x - 1, y    , click = False)
@@ -213,8 +216,8 @@ class Grid:
 
 	def flagCell(self, x, y):
 		if self.state != 0: return # Not playing
-		if not self.cellValid(x, y): return
-		if self.isOpen(x, y): return
+		if not self.cellValid(x, y): return # Out of bounds
+		if self.isOpen(x, y): return # Already open, can't be flagged
 
 		if self.grid[y][x].flagged == False:
 			self.grid[y][x].flagged = True
@@ -223,13 +226,21 @@ class Grid:
 			self.grid[y][x].flagged = False
 			self.minesLeft += 1
 
-# Function to resize window
+# Function to resize window when changing difficulty
 
 def resizeWindow(size):
 	window = pygame.display.set_mode(size)
 	windowSurface = pygame.display.get_surface()
 
 	return window, windowSurface
+
+# Function to draw text
+
+def drawText(window, font, x, y, text, color):
+	textSurface = font.render(text, True, color)
+	textRect = textSurface.get_rect()
+	textRect.topleft = (x, y)
+	window.blit(textSurface, textRect)
 
 # Mine number colors
 
@@ -287,13 +298,16 @@ while gameRunning:
 			cellY = event.pos[1] // cellSize
 
 			if event.button == pygame.BUTTON_LEFT:
+				if grid.created == False:
+					grid.start(cellX, cellY)
+
 				grid.openCell(cellX, cellY, click = True)
 
 			if event.button == pygame.BUTTON_RIGHT:
 				grid.flagCell(cellX, cellY)
 
 		if event.type == pygame.KEYDOWN:
-			if event.key == pygame.K_SPACE: # Resetting th egrid
+			if event.key == pygame.K_SPACE: # Resetting the grid
 				grid.reset()
 
 			if event.key == pygame.K_ESCAPE: # Exitting the game
@@ -375,49 +389,20 @@ while gameRunning:
 	else:
 		timerColor = (255, 0, 0)
 
-	timerSurface = smallFont.render('Time: ' + str(grid.time), True, timerColor)
-	timerRect = timerSurface.get_rect()
-	timerRect.y = grid.size[1] * cellSize
-
-	window.blit(timerSurface, timerRect)
+	timeText = 'Time: ' + str(grid.time)
+	drawText(window, smallFont, 0, grid.size[1] * cellSize, timeText, timerColor)
 
 	# Show number of mines left unflagged
 
-	textSurface = smallFont.render('Mines left: ' + str(grid.minesLeft), True, (255, 255, 255))
-	textRect = textSurface.get_rect()
-	textRect.y = grid.size[1] * cellSize + smallFontSize
-
-	window.blit(textSurface, textRect)
+	minesText = 'Mines left: ' + str(grid.minesLeft)
+	drawText(window, smallFont, 0, grid.size[1] * cellSize + smallFontSize, minesText, (255, 255, 255))
 
 	# Show controls
 
-	textSurface = smallFont.render('Space - Reset', True, (255, 255, 255))
-	textRect = textSurface.get_rect()
-	textRect.x = 80
-	textRect.y = grid.size[1] * cellSize
-
-	window.blit(textSurface, textRect)
-
-	textSurface = smallFont.render('1 - Beginner', True, (255, 255, 255))
-	textRect = textSurface.get_rect()
-	textRect.x = 80
-	textRect.y = grid.size[1] * cellSize + smallFontSize
-
-	window.blit(textSurface, textRect)
-
-	textSurface = smallFont.render('2 - Intermediate', True, (255, 255, 255))
-	textRect = textSurface.get_rect()
-	textRect.x = 180
-	textRect.y = grid.size[1] * cellSize
-
-	window.blit(textSurface, textRect)
-
-	textSurface = smallFont.render('3 - Expert', True, (255, 255, 255))
-	textRect = textSurface.get_rect()
-	textRect.x = 180
-	textRect.y = grid.size[1] * cellSize + smallFontSize
-
-	window.blit(textSurface, textRect)
+	drawText(window, smallFont, 80, grid.size[1] * cellSize, 'Space - Reset', (255, 255, 255))
+	drawText(window, smallFont, 80, grid.size[1] * cellSize + smallFontSize, '1 - Beginner', (255, 255, 255))
+	drawText(window, smallFont, 180, grid.size[1] * cellSize, '2 - Intermediate', (255, 255, 255))
+	drawText(window, smallFont, 180, grid.size[1] * cellSize  + smallFontSize, '3 - Expert', (255, 255, 255))
 
 	# Update timer
 
